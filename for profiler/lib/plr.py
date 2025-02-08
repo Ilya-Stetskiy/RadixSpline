@@ -41,8 +41,8 @@ class One_Line:
         # fig=self.plot_line(fig,self.points, "points")
         # for i in self.err_array(self.points):
         #     fig=self.plot_line(fig,i, "err")
-        fig=self.plot_line(fig,[self.cvx_bot[0],self.cvx_top[-1]], "p")
-        fig=self.plot_line(fig,[self.cvx_top[0],self.cvx_bot[-1]], "p")
+        fig=self.plot_line(fig,[self.cvx_bot[0],self.cvx_top[-1]], "pmax")
+        fig=self.plot_line(fig,[self.cvx_top[0],self.cvx_bot[-1]], "pmin")
         fig=self.plot_line(fig,[self.startLine,self.endLine], "spline")
         # fig=self.plot_line(fig,[self.cvx_top[0],self.cvx_bot[-1]], "p")
         # fig.show()
@@ -56,7 +56,7 @@ class One_Line:
         return fig
         
     
-    def plot_line(self, fig, line, name, showlegend=False):
+    def     plot_line(self, fig, line, name, showlegend=False,  width=2):
         x_=[]
         y_=[]
         for i in line:
@@ -65,7 +65,7 @@ class One_Line:
             
         
         # fig=px.scatter(self.points)
-        fig.add_trace(go.Scatter(x=x_,y=y_, name=name,showlegend=showlegend))
+        fig.add_trace(go.Scatter(x=x_,y=y_, name=name,showlegend=showlegend, fillcolor="RED"))
         return fig
         
     def add_point(self,point):

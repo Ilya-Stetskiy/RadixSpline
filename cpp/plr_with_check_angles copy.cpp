@@ -107,91 +107,91 @@ public:
     }
 
     // Вычисление точки пересечения
-    optional<pair<double, double>> intersection_point() {
-        double x1 = cvx_top[0].first, y1 = cvx_top[0].second;
-        double x2 = cvx_bot.back().first, y2 = cvx_bot.back().second;
-        double x3 = cvx_bot[0].first, y3 = cvx_bot[0].second;
-        double x4 = cvx_top.back().first, y4 = cvx_top.back().second;
-
-        double denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-        if (denominator == 0) {
-            return nullopt;
-        }
-
-        double x_numerator = (x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4);
-        double y_numerator = (x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4);
-
-        double x = x_numerator / denominator;
-        double y = y_numerator / denominator;
-
-        return make_pair(x, y);
+optional<pair<double, double>> intersection_point() {
+    if (cvx_top.empty() || cvx_bot.empty()) {
+        return nullopt;
     }
 
-    // Добавление точки с ошибкой в нижнюю границу
-    bool add_bot_err_point(const pair<unsigned long, int>& new_point_bot_err, const pair<unsigned long, int>& new_point_top_err) {
-        double temp_pmin= tg(cvx_top[0], new_point_bot_err);
-        double temp_pmax= tg(cvx_bot[0], new_point_top_err);
-        if (std::max(pmin, temp_pmin)> std::min(pmax,temp_pmax)){
-            return false;
+    double x1 = cvx_top[0].first, y1 = cvx_top[0].second;
+    double x2 = cvx_bot.back().first, y2 = cvx_bot.back().second;
+    double x3 = cvx_bot[0].first, y3 = cvx_bot[0].second;
+    double x4 = cvx_top.back().first, y4 = cvx_top.back().second;
+
+    double denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (denominator == 0) {
+        return nullopt;
+    }
+
+    double x_numerator = (x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4);
+    double y_numerator = (x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4);
+
+    double x = x_numerator / denominator;
+    double y = y_numerator / denominator;
+
+    return make_pair(x, y);
+}
+
+bool add_bot_err_point(const pair<unsigned long, int>& new_point_bot_err, const pair<unsigned long, int>& new_point_top_err) {
+    double temp_pmin = tg(cvx_top[0], new_point_bot_err);
+    double temp_pmax = tg(cvx_bot[0], new_point_top_err);
+
+    // Проверка на пересечение границ
+    if (std::max(pmin, temp_pmin) > std::min(pmax, temp_pmax)) {
+        return false;
+    }
+
+    // Обновление pmin
+    if (temp_pmin > pmin) {
+        while (cvx_top.size() > 1 && tg(cvx_top[1], new_point_bot_err) > temp_pmin) {
+            cvx_top.erase(cvx_top.begin());
         }
-        if (temp_pmin > pmin) {
-            
-            while (cvx_top.size() > 1 && tg(cvx_top[1], new_point_bot_err) > temp_pmin) {
-                temp_pmin = tg(cvx_top[1], new_point_bot_err);
-                cvx_top.erase(cvx_top.begin());
-            }
-            pmin=temp_pmin;
+        pmin = temp_pmin;
+    }
+
+    // Обновление pmax
+    if (temp_pmax < pmax) {
+        while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
+            cvx_bot.erase(cvx_bot.begin());
         }
-        if (temp_pmax< pmax) {
-            while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
-                temp_pmax = tg(cvx_bot[1], new_point_top_err);
-                cvx_bot.erase(cvx_bot.begin());
-            }
-            pmax=temp_pmax;
-        }
+        pmax = temp_pmax;
+    }
+
+    // Добавление новой точки в cvx_bot
+    while (cvx_bot.size() > 1 && tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err) < tg(cvx_bot.back(), new_point_bot_err)) {
+        cvx_bot.pop_back();
+    }
+    cvx_bot.push_back(new_point_bot_err);
+
+    // Добавление новой точки в cvx_top
+    while (cvx_top.size() > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > tg(cvx_top.back(), new_point_top_err)) {
+        cvx_top.pop_back();
+    }
+    cvx_top.push_back(new_point_top_err);
+
+    return true;
+}
+
+    // // Добавление точки с ошибкой в верхнюю границу
+    // void add_top_err_point(const pair<unsigned long, int>& new_point_top_err) {
+    //     if (tg(cvx_bot[0], new_point_top_err) < pmax) {
+    //         double temp_pmax = tg(cvx_bot[0], new_point_top_err);
+    //         while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
+    //             temp_pmax = tg(cvx_bot[1], new_point_top_err);
+    //             cvx_bot.erase(cvx_bot.begin());
+    //         }
+    //         pmax = temp_pmax;
+    //     }
+    //     // Обновляем cvx_top
+    //     size_t ln = cvx_top.size();
+    //     double last_p = tg(cvx_top.back(), new_point_top_err);
+    //     while (ln > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > last_p) {
+    //         last_p = tg(cvx_top[cvx_top.size() - 2], new_point_top_err);
+    //         cvx_top.pop_back(); // Удаляем последний элемент
+    //         ln--;
+    //     }
+    //     cvx_top.push_back(new_point_top_err);
         
-
-        // Обновляем cvx_bot
-         size_t ln = cvx_bot.size();
-        double last_p = tg(cvx_bot.back(), new_point_bot_err);
-        while (ln > 1 && tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err) < last_p) {
-            last_p = tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err);
-             cvx_bot.pop_back(); // Удаляем последний элемент
-             ln--;
-    }
-    cvx_bot.push_back(new_point_bot_err); // Добавляем новую точку
-    ln = cvx_top.size();
-    last_p = tg(cvx_top.back(), new_point_top_err);
-        while (ln > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > last_p) {
-            last_p = tg(cvx_top[cvx_top.size() - 2], new_point_top_err);
-            cvx_top.pop_back(); // Удаляем последний элемент
-            ln--;
-        }
-        cvx_top.push_back(new_point_top_err);
-        return true;
-    }
-
-    // Добавление точки с ошибкой в верхнюю границу
-    void add_top_err_point(const pair<unsigned long, int>& new_point_top_err) {
-        if (tg(cvx_bot[0], new_point_top_err) < pmax) {
-            double temp_pmax = tg(cvx_bot[0], new_point_top_err);
-            while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
-                temp_pmax = tg(cvx_bot[1], new_point_top_err);
-                cvx_bot.erase(cvx_bot.begin());
-            }
-            pmax = temp_pmax;
-        }
-        // Обновляем cvx_top
-        size_t ln = cvx_top.size();
-        double last_p = tg(cvx_top.back(), new_point_top_err);
-        while (ln > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > last_p) {
-            last_p = tg(cvx_top[cvx_top.size() - 2], new_point_top_err);
-            cvx_top.pop_back(); // Удаляем последний элемент
-            ln--;
-        }
-        cvx_top.push_back(new_point_top_err);
-        
-    }
+    // }
 
 
 public:
@@ -298,6 +298,7 @@ int get_key(const std::vector<std::pair<unsigned long, int>>& data, const std::p
         double right = static_cast<double>(radix_answer + error);
 
         left = std::max(left, 0.0);
+        right = std::min(right, static_cast<double>(data.size()) - 1);
 
         int res = bin_search(data, key.first, left, right);
 

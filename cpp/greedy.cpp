@@ -5,108 +5,105 @@
 #include <utility>
 #include <chrono>
 #include "csv.hpp"
+#include "greedy.hpp"
 
-// Шаблонная функция для загрузки данных
-template <typename SplineType>
-void load_data(SplineType& spline, const std::vector<std::pair<int, unsigned long>>& data) {
-    for (const auto& point : data) {
-        spline.new_spline(point);
-    }
+
+
+GreedySpline::GreedySpline(int error) : error(error) {}
+void GreedySpline::start(const std::pair<unsigned long, int>& new_point) {
+    tg_err_top = std::numeric_limits<double>::infinity();
+    tg_err_bot = -std::numeric_limits<double>::infinity();
+    greedyspline.push_back(new_point);
+    greedyspline.push_back(new_point);
+    last_point = new_point;
 }
 
-class GreedySpline {
-public:
-    GreedySpline(int error = 10) : error(error) {}
-
-    void start(const std::pair<int, unsigned long>& new_point) {
-        tg_err_top = std::numeric_limits<double>::infinity();
-        tg_err_bot = -std::numeric_limits<double>::infinity();
-        greedyspline.push_back(new_point);
-        greedyspline.push_back(new_point);
-        last_point = new_point;
+double GreedySpline::tg_spline(const std::pair<unsigned long, int>& a, const std::pair<unsigned long, int>& b, int err) {
+    return (a.second + (double)error * err - b.second) / (a.first - b.first);
+}
+void GreedySpline::new_coridor(const std::pair<unsigned long, int>& a, const std::pair<unsigned long, int>& b) {
+    tg_err_top = std::min(tg_err_top, tg_spline(a, b, 1));
+    tg_err_bot = std::max(tg_err_bot, tg_spline(a, b, -1));
+}
+void GreedySpline::new_spline(const std::pair<unsigned long, int>& new_point) {
+    if (greedyspline.empty()) {
+        start(new_point);
+        return;
     }
-
-    double tg_spline(const std::pair<int, unsigned long>& a, const std::pair<int, unsigned long>& b, int err = 0) {
-        return (a.second + error * err - b.second) / (a.first - b.first);
+    double tg_new_point = tg_spline(new_point, greedyspline[greedyspline.size() - 2],0);
+    if (tg_new_point < tg_err_top && tg_new_point > tg_err_bot) {
+        new_coridor(new_point, greedyspline[greedyspline.size() - 2]);
+        greedyspline[greedyspline.size() - 1] = new_point;
+    } else {
+        greedyspline.push_back(last_point);
+        tg_err_top = tg_spline(new_point, greedyspline[greedyspline.size() - 1], 1);
+        tg_err_bot = tg_spline(new_point, greedyspline[greedyspline.size() - 1], -1);
     }
-
-    void new_coridor(const std::pair<int, unsigned long>& a, const std::pair<int, unsigned long>& b) {
-        tg_err_top = std::min(tg_err_top, tg_spline(a, b, 1));
-        tg_err_bot = std::max(tg_err_bot, tg_spline(a, b, -1));
-    }
-
-    void new_spline(const std::pair<int, unsigned long>& new_point) {
-        if (greedyspline.empty()) {
-            start(new_point);
-            return;
-        }
-        double tg_new_point = tg_spline(new_point, greedyspline[greedyspline.size() - 2]);
-        if (tg_new_point < tg_err_top && tg_new_point > tg_err_bot) {
-            new_coridor(new_point, greedyspline[greedyspline.size() - 2]);
-            greedyspline[greedyspline.size() - 1] = new_point;
-        } else {
-            greedyspline.push_back(last_point);
-            tg_err_top = tg_spline(new_point, greedyspline[greedyspline.size() - 1], 1);
-            tg_err_bot = tg_spline(new_point, greedyspline[greedyspline.size() - 1], -1);
-        }
-        last_point = new_point;
-    }
-
-    void print_spline() const {
+    last_point = new_point;
+}
+void GreedySpline::print_spline() const {
         for (const auto& point : greedyspline) {
             std::cout << "(" << point.first << ", " << point.second << ")" << std::endl;
         }
     }
-
-    int bin_search(const std::vector<std::pair<int, unsigned long>>& data, double key, int left, int right) {
+int GreedySpline::bin_search(const std::vector<std::pair<unsigned long, int>>& data, double key, int left, int right) {
         auto it = lower_bound(data.begin() + left, data.begin() + right + 1, key,
-            [](const std::pair<int, unsigned long>& elem, double key) {
+            [](const std::pair<unsigned long, int>& elem, double key) {
                 return elem.first < key;
             });
-
+    
         if (it != data.end() && it->first == key) {
             return distance(data.begin(), it); // Возвращаем индекс найденного элемента
         }
         return -1; // Если элемент не найден
     }
-
-    std::vector<int> bin_search_spline(int key) {
-        auto it = std::lower_bound(greedyspline.begin(), greedyspline.end(), key,
-            [](const std::pair<int, unsigned long>& elem, int key) {
+std::vector<int> GreedySpline::bin_search_spline(int key, int start_index, int end_index) {
+        if (start_index < 0 || end_index >= greedyspline.size() || start_index > end_index) {
+            return {-1, -1};
+        }
+    
+        auto start_it = greedyspline.begin() + start_index;
+        auto end_it = greedyspline.begin() + end_index + 1;
+    
+        auto it = std::lower_bound(start_it, end_it, key,
+            [](const std::pair<unsigned long, int>& elem, int key) {
                 return elem.first < key;
             });
-
-        if (it == greedyspline.begin()) {
-            return {0, 1};
-        } else if (it == greedyspline.end()) {
-            return {static_cast<int>(greedyspline.size()) - 2, static_cast<int>(greedyspline.size()) - 1};
+    
+        if (it == start_it) {
+            return {start_index, start_index + 1}; 
+        } else if (it == end_it) {
+            return {end_index - 1, end_index};
         } else {
             int mid = std::distance(greedyspline.begin(), it);
             return {mid - 1, mid};
         }
     }
-
-    unsigned long give_answer(int key) {
-        auto bin_ans = bin_search_spline(key);
-        if (bin_ans[0] == -1 || bin_ans[1] == -1) {
-            throw std::runtime_error("Key is out of spline range");
-        }
-
-        int kl = greedyspline[bin_ans[0]].first;
-        unsigned long pl = greedyspline[bin_ans[0]].second;
-        int kr = greedyspline[bin_ans[1]].first;
-        unsigned long pr = greedyspline[bin_ans[1]].second;
-
-        return pl + (key - kl) * (pr - pl) / std::max(1, (kr - kl));
+std::vector<int> GreedySpline::bin_search_spline(int key) {
+        return bin_search_spline(key, 0, static_cast<int>(greedyspline.size()) - 1);
+    }
+    
+unsigned long GreedySpline::give_answer(int key) {
+    auto bin_ans = bin_search_spline(key);
+    if (bin_ans[0] == -1 || bin_ans[1] == -1) {
+        throw std::runtime_error("Key is out of spline range");
     }
 
-    int get_key(const std::vector<std::pair<int, unsigned long>>& data, const std::pair<int, unsigned long>& key) {
+    unsigned long kl = greedyspline[bin_ans[0]].first;
+    int pl = greedyspline[bin_ans[0]].second;
+     unsigned long kr = greedyspline[bin_ans[1]].first;
+    int pr = greedyspline[bin_ans[1]].second;
+
+    return pl + (key - kl) * (pr - pl) / std::max((unsigned long)1, (kr - kl));
+}
+
+int GreedySpline::get_key(const std::vector<std::pair<unsigned long, int>>& data, const std::pair<unsigned long, int>& key) {
         unsigned long radix_answer = give_answer(key.first);
         int left = static_cast<int>(radix_answer - error);
         int right = static_cast<int>(radix_answer + error);
 
         left = std::max(left, 0);
-        right = std::min(right, static_cast<int>(data.size()) - 1);
+        right = std::min(right, last_point.second);
 
         int res = bin_search(data, key.first, left, right);
 
@@ -117,18 +114,20 @@ public:
         return res;
     }
 
-    std::vector<std::pair<int, unsigned long>> greedyspline;
 
-private:
-    double error;
-    double tg_err_top;
-    double tg_err_bot;
-    std::pair<int, unsigned long> last_point;
-};
+
+
+
+
+
+
+
+
+
 
 // Функция для чтения CSV-файла
-std::vector<std::pair<int, unsigned long>> read_csv(const std::string& filename) {
-    std::vector<std::pair<int, unsigned long>> data;
+std::vector<std::pair<unsigned long, int>> read_csv(const std::string& filename) {
+    std::vector<std::pair<unsigned long, int>> data;
     csv::CSVReader reader(filename);
 
     for (csv::CSVRow& row : reader) {
@@ -140,33 +139,33 @@ std::vector<std::pair<int, unsigned long>> read_csv(const std::string& filename)
     return data;
 }
 
-int main() {
-    std::string filename = "../cinema.csv";
-    std::vector<std::pair<int, unsigned long>> data = read_csv(filename);
+// int main() {
+//     std::string filename = "../cinema.csv";
+//     std::vector<std::pair<unsigned long, int>> data = read_csv(filename);
 
-    auto start_create_time = std::chrono::high_resolution_clock::now();
-    GreedySpline A(6);
-    load_data(A, data);
-    auto end_create_time = std::chrono::high_resolution_clock::now();
-    // A.print_spline();
-    std::cout << "vector lenght : " <<A.greedyspline.size() << std::endl;
-    auto create_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_create_time - start_create_time);
-    std::cout << "Search time: " << create_duration.count() << " ms" << std::endl;
+//     auto start_create_time = std::chrono::high_resolution_clock::now();
+//     GreedySpline A(6);
+//     load_data(A, data);
+//     auto end_create_time = std::chrono::high_resolution_clock::now();
+//     // A.print_spline();
+//     std::cout << "vector lenght : " <<A.greedyspline.size() << std::endl;
+//     auto create_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_create_time - start_create_time);
+//     std::cout << "Search time: " << create_duration.count() << " ms" << std::endl;
 
-    auto start_time = std::chrono::high_resolution_clock::now();
+//     auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (size_t i = 0; i < data.size(); ++i) {
-        try {
-            std::pair<int, unsigned long> key = data[i];
-            int result = A.get_key(data, key);
-        } catch (const std::exception& e) {
-            std::cerr << "ERROR (" << data[i].first << ", " << data[i].second << "): " << e.what() << std::endl;
-        }
-    }
+//     for (size_t i = 0; i < data.size(); ++i) {
+//         try {
+//             std::pair<unsigned long, int> key = data[i];
+//             int result = A.get_key(data, key);
+//         } catch (const std::exception& e) {
+//             std::cerr << "ERROR (" << data[i].first << ", " << data[i].second << "): " << e.what() << std::endl;
+//         }
+//     }
 
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "Search time: " << duration.count() << " ms" << std::endl;
+//     auto end_time = std::chrono::high_resolution_clock::now();
+//     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+//     std::cout << "Search time: " << duration.count() << " ms" << std::endl;
 
-    return 0;
-}
+//     return 0;
+// }

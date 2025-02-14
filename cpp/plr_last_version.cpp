@@ -72,6 +72,7 @@ public:
             points.push_back(point);
             // add_top_err_point(plus_err);
             if (!add_bot_err_point(minus_err, plus_err)){
+                // std::cout <<"PROBLEMS"<< std::endl;
                 points.pop_back();
                 end_line();
                 return false;
@@ -87,11 +88,12 @@ public:
     void end_line() {
         auto intersection = intersection_point();
         if (intersection) {
+            
             double p = (pmin + pmax) / 2;
-
+            // std::cout <<pmin<< "  "<< pmax<< "  "<<p<< std::endl;
             startLine = point_on_line(*intersection, p, start_point.first);
             endLine = point_on_line(*intersection, p, finish_point.first);
-            // std::cout << bool(pmin < pmax)<< std::endl;/
+            // std::cout << bool(pmin < pmax)<< std::endl;
         } else {
             startLine = endLine = start_point;
         }
@@ -99,8 +101,10 @@ public:
 
     // Вычисление точки на линии
     pair<double, double> point_on_line(const pair<double, double>& intersection_point, double p, double target_x) {
+        // std::cout <<"INTERSECTION    "<< (long)intersection_point.first<<"  "<<intersection_point.second<< std::endl;
         double x0 = intersection_point.first;
         double y0 = intersection_point.second;
+
         double b = y0 - p * x0;
         double y = p * target_x + b;
         return {target_x, y};
@@ -129,45 +133,68 @@ public:
 
     // Добавление точки с ошибкой в нижнюю границу
     bool add_bot_err_point(const pair<unsigned long, int>& new_point_bot_err, const pair<unsigned long, int>& new_point_top_err) {
+        double previos_pmin=pmin, previos_pmax=pmax;
         double temp_pmin= tg(cvx_top[0], new_point_bot_err);
         double temp_pmax= tg(cvx_bot[0], new_point_top_err);
-        if (std::max(pmin, temp_pmin)> std::min(pmax,temp_pmax)){
-            return false;
-        }
-        if (temp_pmin > pmin) {
+        // std::cout <<pmin<< "  "<< pmax<< "  "<<temp_pmin<< "  "<< temp_pmax<< "  "<< std::endl;
+        // if (std::max(pmin, temp_pmin)> std::min(pmax,temp_pmax)){
             
-            while (cvx_top.size() > 1 && tg(cvx_top[1], new_point_bot_err) > temp_pmin) {
-                temp_pmin = tg(cvx_top[1], new_point_bot_err);
-                cvx_top.erase(cvx_top.begin());
+        //     return false;
+        // }
+        int pmin_counter=0;
+        int pmax_counter=0;
+        // std::cout<<pmin << ' '<<pmax<<std::endl;
+        if (temp_pmin > pmin) {
+            while (pmin_counter< cvx_top.size()-1 && tg(cvx_top[pmin_counter+1], new_point_bot_err) > temp_pmin) {
+                pmin_counter++;
+                temp_pmin = tg(cvx_top[pmin_counter], new_point_bot_err);
+                // cvx_top.erase(cvx_top.begin());
             }
             pmin=temp_pmin;
         }
         if (temp_pmax< pmax) {
-            while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
-                temp_pmax = tg(cvx_bot[1], new_point_top_err);
-                cvx_bot.erase(cvx_bot.begin());
+            while (pmax_counter<cvx_bot.size()-1  && tg(cvx_bot[pmax_counter+1], new_point_top_err) < temp_pmax) {
+                pmax_counter++;
+                temp_pmax = tg(cvx_bot[pmax_counter], new_point_top_err);
+                // cvx_bot.erase(cvx_bot.begin());
+                
             }
             pmax=temp_pmax;
         }
-        
+        if (pmin > pmax){
+            // std::cout<<pmin << ' '<<pmax<<std::endl;
+            pmin=previos_pmin;
+            pmax=previos_pmax;
+            return false;
+        }
+        for (size_t i = 0; i < pmin_counter; ++i){cvx_top.erase(cvx_top.begin());}
+        for (size_t i = 0; i < pmax_counter; ++i){cvx_bot.erase(cvx_bot.begin());}
 
+        // std::cout <<pmin<< "  "<< pmax<< "  "<<temp_pmin<< "  "<< temp_pmax<< "  "<< std::endl;
+        size_t ln;
+        double last_p;
+        if (pmin>previos_pmin){
         // Обновляем cvx_bot
-         size_t ln = cvx_bot.size();
-        double last_p = tg(cvx_bot.back(), new_point_bot_err);
+        ln = cvx_bot.size();
+        last_p = tg(cvx_bot.back(), new_point_bot_err);
         while (ln > 1 && tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err) < last_p) {
             last_p = tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err);
              cvx_bot.pop_back(); // Удаляем последний элемент
              ln--;
-    }
-    cvx_bot.push_back(new_point_bot_err); // Добавляем новую точку
-    ln = cvx_top.size();
-    last_p = tg(cvx_top.back(), new_point_top_err);
+            }
+        cvx_bot.push_back(new_point_bot_err); // Добавляем новую точку
+        }
+        if (pmax>previos_pmax){   
+        ln = cvx_top.size();
+        last_p = tg(cvx_top.back(), new_point_top_err);
         while (ln > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > last_p) {
             last_p = tg(cvx_top[cvx_top.size() - 2], new_point_top_err);
             cvx_top.pop_back(); // Удаляем последний элемент
             ln--;
         }
         cvx_top.push_back(new_point_top_err);
+
+        }
         return true;
     }
 
@@ -276,7 +303,7 @@ double give_answer(unsigned long key) {
         double kr = PLRSpline[bin_ans].second.first;
         double  pr = PLRSpline[bin_ans].second.second;
 
-        return pl + (key - kl) * (pr - pl) / std::max(1., (kr - kl));
+        return pl + (key - kl) * (pr - pl) / std::max(0.1, (kr - kl));
     }
 
 
@@ -297,7 +324,7 @@ int get_key(const std::vector<std::pair<unsigned long, int>>& data, const std::p
         double left = static_cast<double>(radix_answer - error);
         double right = static_cast<double>(radix_answer + error);
 
-        left = std::max(left, 0.0);
+        // left = std::max(left, 0.0);
 
         int res = bin_search(data, key.first, left, right);
 
@@ -345,7 +372,7 @@ int main() {
 
     // Создание и использование GreedySpline
     auto start_create_time = std::chrono::high_resolution_clock::now();
-    PLR A(6);
+    PLR A(3);
     load_data(A, data);
     auto end_create_time = std::chrono::high_resolution_clock::now();
     // A.print_spline();

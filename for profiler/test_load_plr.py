@@ -9,4 +9,4 @@ data=[[key,ind] for ind,key in enumerate(sort_keys)]
 A=PLR(data,6, True)
 print("calculated PLR asize = ",asizeof.asizeof(A))
 print("count of points = ", len(A))
-# print(A)
+print(A)

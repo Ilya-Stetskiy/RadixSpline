@@ -68,10 +68,15 @@ public:
     bool add_point(const pair<unsigned long, int>& point) {
         auto [plus_err, minus_err] = err_diapason(point);
         bool result = check_not_outside(plus_err, minus_err);
-        if (result && (pmin<=pmax)) {
+        if (result) {
             points.push_back(point);
-            add_top_err_point(plus_err);
-            add_bot_err_point(minus_err);
+            // add_top_err_point(plus_err);
+            if (!add_bot_err_point(minus_err, plus_err)){
+                // std::cout <<"PROBLEMS"<< std::endl;
+                points.pop_back();
+                end_line();
+                return false;
+            }
             finish_point = point;
         } else {
             end_line();
@@ -83,8 +88,9 @@ public:
     void end_line() {
         auto intersection = intersection_point();
         if (intersection) {
+            
             double p = (pmin + pmax) / 2;
-
+            // std::cout <<pmin<< "  "<< pmax<< "  "<<p<< std::endl;
             startLine = point_on_line(*intersection, p, start_point.first);
             endLine = point_on_line(*intersection, p, finish_point.first);
             // std::cout << bool(pmin < pmax)<< std::endl;
@@ -95,11 +101,12 @@ public:
 
     // Вычисление точки на линии
     pair<double, double> point_on_line(const pair<double, double>& intersection_point, double p, double target_x) {
+        // std::cout <<"INTERSECTION    "<< (long)intersection_point.first<<"  "<<intersection_point.second<< std::endl;
         double x0 = intersection_point.first;
         double y0 = intersection_point.second;
+
         double b = y0 - p * x0;
         double y = p * target_x + b;
-        // std::cout << x0<< "  " <<y0<< std::endl;
         return {target_x, y};
     }
 
@@ -125,46 +132,93 @@ public:
     }
 
     // Добавление точки с ошибкой в нижнюю границу
-    void add_bot_err_point(const pair<unsigned long, int>& new_point_bot_err) {
-        if (tg(cvx_top[0], new_point_bot_err) > pmin) {
-            double temp_pmin = tg(cvx_top[0], new_point_bot_err);
-            while (cvx_top.size() > 1 && tg(cvx_top[1], new_point_bot_err) > temp_pmin) {
-                temp_pmin = tg(cvx_top[1], new_point_bot_err);
-                cvx_top.erase(cvx_top.begin());
+    bool add_bot_err_point(const pair<unsigned long, int>& new_point_bot_err, const pair<unsigned long, int>& new_point_top_err) {
+        double previos_pmin=pmin, previos_pmax=pmax;
+        double temp_pmin= tg(cvx_top[0], new_point_bot_err);
+        double temp_pmax= tg(cvx_bot[0], new_point_top_err);
+        // std::cout <<pmin<< "  "<< pmax<< "  "<<temp_pmin<< "  "<< temp_pmax<< "  "<< std::endl;
+        // if (std::max(pmin, temp_pmin)> std::min(pmax,temp_pmax)){
+            
+        //     return false;
+        // }
+        int pmin_counter=0;
+        int pmax_counter=0;
+        // std::cout<<pmin << ' '<<pmax<<std::endl;
+        if (temp_pmin > pmin) {
+            while (pmin_counter< cvx_top.size()-1 && tg(cvx_top[pmin_counter+1], new_point_bot_err) > temp_pmin) {
+                pmin_counter++;
+                temp_pmin = tg(cvx_top[pmin_counter], new_point_bot_err);
+                // cvx_top.erase(cvx_top.begin());
             }
-            pmin = temp_pmin;
+            pmin=temp_pmin;
         }
+        if (temp_pmax< pmax) {
+            while (pmax_counter<cvx_bot.size()-1  && tg(cvx_bot[pmax_counter+1], new_point_top_err) < temp_pmax) {
+                pmax_counter++;
+                temp_pmax = tg(cvx_bot[pmax_counter], new_point_top_err);
+                // cvx_bot.erase(cvx_bot.begin());
+                
+            }
+            pmax=temp_pmax;
+        }
+        if (pmin > pmax){
+            // std::cout<<pmin << ' '<<pmax<<std::endl;
+            pmin=previos_pmin;
+            pmax=previos_pmax;
+            return false;
+        }
+        for (size_t i = 0; i < pmin_counter; ++i){cvx_top.erase(cvx_top.begin());}
+        for (size_t i = 0; i < pmax_counter; ++i){cvx_bot.erase(cvx_bot.begin());}
+
+        // std::cout <<pmin<< "  "<< pmax<< "  "<<temp_pmin<< "  "<< temp_pmax<< "  "<< std::endl;
+        size_t ln;
+        double last_p;
+        // if (pmin>previos_pmin){
         // Обновляем cvx_bot
-         size_t ln = cvx_bot.size();
-        double last_p = tg(cvx_bot.back(), new_point_bot_err);
+        ln = cvx_bot.size();
+        last_p = tg(cvx_bot.back(), new_point_bot_err);
         while (ln > 1 && tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err) < last_p) {
             last_p = tg(cvx_bot[cvx_bot.size() - 2], new_point_bot_err);
              cvx_bot.pop_back(); // Удаляем последний элемент
              ln--;
-    }
-    cvx_bot.push_back(new_point_bot_err); // Добавляем новую точку
-    }
-
-    // Добавление точки с ошибкой в верхнюю границу
-    void add_top_err_point(const pair<unsigned long, int>& new_point_top_err) {
-        if (tg(cvx_bot[0], new_point_top_err) < pmax) {
-            double temp_pmax = tg(cvx_bot[0], new_point_top_err);
-            while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
-                temp_pmax = tg(cvx_bot[1], new_point_top_err);
-                cvx_bot.erase(cvx_bot.begin());
             }
-            pmax = temp_pmax;
-        }
-        // Обновляем cvx_top
-        size_t ln = cvx_top.size();
-        double last_p = tg(cvx_top.back(), new_point_top_err);
+        cvx_bot.push_back(new_point_bot_err); // Добавляем новую точку
+        // }
+        // if (pmax>previos_pmax){   
+        ln = cvx_top.size();
+        last_p = tg(cvx_top.back(), new_point_top_err);
         while (ln > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > last_p) {
             last_p = tg(cvx_top[cvx_top.size() - 2], new_point_top_err);
             cvx_top.pop_back(); // Удаляем последний элемент
             ln--;
         }
         cvx_top.push_back(new_point_top_err);
+
+        // }
+        return true;
     }
+
+    // // Добавление точки с ошибкой в верхнюю границу
+    // void add_top_err_point(const pair<unsigned long, int>& new_point_top_err) {
+    //     if (tg(cvx_bot[0], new_point_top_err) < pmax) {
+    //         double temp_pmax = tg(cvx_bot[0], new_point_top_err);
+    //         while (cvx_bot.size() > 1 && tg(cvx_bot[1], new_point_top_err) < temp_pmax) {
+    //             temp_pmax = tg(cvx_bot[1], new_point_top_err);
+    //             cvx_bot.erase(cvx_bot.begin());
+    //         }
+    //         pmax = temp_pmax;
+    //     }
+    //     // Обновляем cvx_top
+    //     size_t ln = cvx_top.size();
+    //     double last_p = tg(cvx_top.back(), new_point_top_err);
+    //     while (ln > 1 && tg(cvx_top[cvx_top.size() - 2], new_point_top_err) > last_p) {
+    //         last_p = tg(cvx_top[cvx_top.size() - 2], new_point_top_err);
+    //         cvx_top.pop_back(); // Удаляем последний элемент
+    //         ln--;
+    //     }
+    //     cvx_top.push_back(new_point_top_err);
+        
+    // }
 
 
 public:
@@ -248,10 +302,8 @@ double give_answer(unsigned long key) {
         double pl = PLRSpline[bin_ans].first.second;
         double kr = PLRSpline[bin_ans].second.first;
         double  pr = PLRSpline[bin_ans].second.second;
-        // std::cout << kl<<" "<< pl<<" "<< kr<<" "<< pr<<" " << std::endl;
-        // std::cout <<pl + (key - kl) * (pr - pl) / std::max(1., (kr - kl)) << std::endl;
 
-        return pl + (key - kl) * (pr - pl) / std::max(1., (kr - kl));
+        return pl + (key - kl) * (pr - pl) / std::max(0.1, (kr - kl));
     }
 
 
@@ -269,12 +321,10 @@ int bin_search(const std::vector<std::pair<unsigned long, int>>& data, double ke
 
 int get_key(const std::vector<std::pair<unsigned long, int>>& data, const std::pair<unsigned long, int>& key) {
         double radix_answer = give_answer(key.first);
-        // std::cout <<"hui" << std::endl;
         double left = static_cast<double>(radix_answer - error);
         double right = static_cast<double>(radix_answer + error);
 
-        left = std::max(left, 0.0);
-        right = std::min(right, static_cast<double>(data.size()) - 1);
+        // left = std::max(left, 0.0);
 
         int res = bin_search(data, key.first, left, right);
 
@@ -317,45 +367,45 @@ int get_key(const std::vector<std::pair<unsigned long, int>>& data, const std::p
 
 int main() {
     // Чтение данных из CSV-файла
-    std::string filename = "../cinema.csv"; // Укажите путь к вашему CSV-файлу
+    std::string filename = "../cinema1.csv"; // Укажите путь к вашему CSV-файлу
     std::vector<std::pair<unsigned long, int>> data = read_csv(filename);
 
     // Создание и использование GreedySpline
     auto start_create_time = std::chrono::high_resolution_clock::now();
-    PLR A(6);
+    PLR A(3);
     load_data(A, data);
     auto end_create_time = std::chrono::high_resolution_clock::now();
     // A.print_spline();
     std::cout << "vector lenght : " <<A.PLRSpline.size() << std::endl;
-    // auto create_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_create_time - start_create_time);
-    // std::cout << "Search time: " << create_duration.count() << " ms" << std::endl;
-    // for (const auto& segment : A.PLRSpline) {
-    //     cout << "(" << segment.first.first << ", " << segment.first.second << ") -> "
-    //          << "(" << segment.second.first << ", " << segment.second.second << ")" << endl;
-    // }
+    auto create_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_create_time - start_create_time);
+    std::cout << "Creatr time: " << create_duration.count() << " ms" << std::endl;
+    for (const auto& segment : A.PLRSpline) {
+        cout << "(" << segment.first.first << ", " << segment.first.second << ") -> "
+             << "(" << segment.second.first << ", " << segment.second.second << ")" << endl;
+    }
 
 
-    // // Начало измерения времени
-    // auto start_time = std::chrono::high_resolution_clock::now();
+    // Начало измерения времени
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-    // // Цикл для поиска каждого элемента из data
-    // for (size_t i = 0; i < data.size(); ++i) {
-    //     try {
-    //         std::pair<unsigned long, int> key = data[i];
-    //         int result = A.get_key(data, key);
-    //         // std::cout <<"hui" << std::endl;
-    //         // std::cout << "Элемент (" << key.first << ", " << key.second << ") найден на позиции: " << result << std::endl;
-    //     } catch (const std::exception& e) {
-    //         std::cerr << "ERROR (" << data[i].first << ", " << data[i].second << "): " << e.what() << std::endl;
-    //     }
-    // }
+    // Цикл для поиска каждого элемента из data
+    for (size_t i = 0; i < data.size(); ++i) {
+        try {
+            std::pair<unsigned long, int> key = data[i];
+            int result = A.get_key(data, key);
+            // std::cout <<"hui" << std::endl;
+            // std::cout << "Элемент (" << key.first << ", " << key.second << ") найден на позиции: " << result << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "ERROR (" << data[i].first << ", " << data[i].second << "): " << e.what() << std::endl;
+        }
+    }
 
-    // // Конец измерения времени
-    // auto end_time = std::chrono::high_resolution_clock::now();
+    // Конец измерения времени
+    auto end_time = std::chrono::high_resolution_clock::now();
 
-    // // Вычисление времени выполнения
-    // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    // std::cout << "Search time: " << duration.count() << " ms" << std::endl;
+    // Вычисление времени выполнения
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "Search time: " << duration.count() << " ms" << std::endl;
 
     return 0;
 }

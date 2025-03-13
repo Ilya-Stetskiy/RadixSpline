@@ -21,10 +21,10 @@ test_radix:
  $(CXX) $(CXXFLAGS) test_radix.cpp radix.cpp greedy.cpp -o test_radix
 
 test_radix_errors: 
- $(CXX) $(CXXFLAGS) test_radix_errors.cpp greedy.cpp -o test_radix_errors
+ $(CXX) $(CXXFLAGS) test_radix_errors.cpp radix.cpp greedy.cpp -o test_radix_errors
 
 test_radix_prefix: 
- $(CXX) $(CXXFLAGS) test_radix_prefix.cpp greedy.cpp -o test_radix_prefix
+ $(CXX) $(CXXFLAGS) test_radix_prefix.cpp radix.cpp greedy.cpp -o test_radix_prefix
 
 
 clean:

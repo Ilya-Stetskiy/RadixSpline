@@ -54,12 +54,15 @@ RadixSpline::RadixSpline(const GreedySpline& greedySpline, int bitcount)
     }
 
     void RadixSpline::get_RadixSpline() {
+        int idx=-1;  
         for (size_t ind = 0; ind < spline.size(); ++ind) {
             int temp = first_bits(spline[ind].first);
-            if (radixspline[temp] == -1) {
+            if (temp > idx) {
                 radixspline[temp] = static_cast<int>(ind);
+                idx=temp;
             }
         }
+
         if (radixspline[(1 << bitcount) - 1] == -1) {
             radixspline[(1 << bitcount) - 1] = static_cast<int>(spline.size()) - 1;
         }

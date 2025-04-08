@@ -3,7 +3,16 @@
 
 #include <vector>
 #include <utility>
-#include "csv.hpp"
+#include <string>
+#include <iostream>
+#include <limits>
+#include <algorithm>
+#include <chrono>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <chrono>
+
 template <typename SplineType>
 void load_data(SplineType& spline, const std::vector<std::pair<unsigned long, int>>& data) {
     for (const auto& point : data) {

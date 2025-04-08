@@ -1,10 +1,3 @@
-#include <iostream>
-#include <vector>
-#include <limits>
-#include <algorithm>
-#include <utility>
-#include <chrono>
-#include "csv.hpp"
 #include "greedy.hpp"
 
 
@@ -131,12 +124,34 @@ int GreedySpline::get_key(const std::vector<std::pair<unsigned long, int>>& data
 // Функция для чтения CSV-файла
 std::vector<std::pair<unsigned long, int>> read_csv(const std::string& filename) {
     std::vector<std::pair<unsigned long, int>> data;
-    csv::CSVReader reader(filename);
+    std::ifstream file(filename);
+    
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open file: " + filename);
+    }
 
-    for (csv::CSVRow& row : reader) {
-        int value = row[""].get<int>();
-        unsigned long timestamp = row["timestamp"].get<unsigned long>();
-        data.push_back({timestamp, value});
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string timestamp_str, value_str;
+
+
+        if (!std::getline(iss, value_str, ',')) {
+            continue;  
+        }
+        if (!std::getline(iss, timestamp_str)) {
+            continue;
+        }
+
+        try {
+            unsigned long timestamp = std::stoul(timestamp_str);
+            int value = std::stoi(value_str);
+            data.push_back({timestamp, value});
+        } catch (const std::invalid_argument& e) {
+            continue; 
+        } catch (const std::out_of_range& e) {
+            continue; 
+        }
     }
 
     return data;

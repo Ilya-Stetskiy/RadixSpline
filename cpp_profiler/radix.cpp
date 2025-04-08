@@ -1,11 +1,3 @@
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <algorithm>
-#include <stdexcept>
-#include <utility>
-#include <limits>
-#include "greedy.hpp"
 #include "radix.hpp"
 
 using namespace std;

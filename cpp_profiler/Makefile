@@ -28,5 +28,4 @@ test_radix_prefix:
 
 
 clean:
- rm -f *.exe
-
+	rm -f *.exe

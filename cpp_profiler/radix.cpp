@@ -8,7 +8,9 @@ RadixSpline::RadixSpline(const GreedySpline& greedySpline, int bitcount)
         radixspline.resize(1 << bitcount, -1);
         bit_len = bit_length(spline.back().first);
         len_greedy = spline.size();
-        tie(not_prefix, mod) = not_prefix_count();
+        pair<int, int> result = not_prefix_count();
+        not_prefix = result.first;
+        mod = result.second;
         move_right = bit_len - bitcount - not_prefix;
         get_RadixSpline();
     }
